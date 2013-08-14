@@ -1,0 +1,320 @@
+#!/usr/bin/env php5
+<?php
+
+/*
+#    OpenWire Framework 
+#    Copyright 2013 OpenWire Security
+#    Version: 1.1.3
+#    Version Commit Date: 05/11/13
+#    Credits to AntiPaste for the original 0x0F Framework
+#
+#
+#    OpenWirePHP is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    OpenWirePHP is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with OpenWirePHP.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
+$framework = new Framework;
+$framework->run();
+
+class Framework {
+
+    const userAgent = 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/10.04 Chromium/17.0.963.56 Chrome/17.0.963.56 Safari/535.11';
+    const threads = 10;
+    const regexURL = '#^(https?://)?[a-zA-Z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}$#';
+    const regexPath = '#^[a-zA-Z0-9\.\-_~\!\$&\'\(\)\*\+,;\=\:@/]+$#';
+
+    private $defaultVariables;
+    protected $variables, $framework, $libs, $core, $sqli, $sqlclass, $sqlcore;
+
+
+    public function __construct()
+    {
+        $this->libs = array();
+        $this->core = array();
+        $this->sqli = array();
+        $this->base = getcwd();
+        $this->framework = $this;
+    }
+
+    public function run()
+    {
+        $liblist = $this->preloadLibs();
+        foreach($liblist as $lib)
+            $this->loadLibrary(substr($lib, 5, -10));
+            
+        $corelist = $this->preloadCore();
+        foreach($corelist as $core)
+            $this->loadCore(substr($core, 5, -10));
+            
+        $sqllist = $this->preloadSQL();
+        foreach($sqllist as $sqli)
+            $this->loadSQL(substr($sqli, 5, -10));
+                    
+        $this->core['modules']->preloadModules();
+        $this->core['main']->outputHeader();
+        $line = '';
+        $exitCommands = array('quit', 'exit');
+
+        do {
+            $prompt = $this->libs['colours']->cstring("O", "white");
+            $prompt .= $this->libs['colours']->cstring("W", "white");
+            $prompt .= $this->libs['colours']->cstring("F> ", "white");
+            $line = readline($prompt);
+            $commands = explode(' ', $line);
+            if (empty($commands) || in_array($commands[0], $exitCommands)) continue;
+            switch ($commands[0]) 
+            {
+                case 'help':
+                    $this->core['main']->showUsage(); break;
+
+                case 'list':
+                    if (empty($commands[1])) $this->core['main']->showUsage();
+                    else if ($this->core['modules']->setModType($commands[1])) $this->core['modules']->listModules();
+                    else $this->core['main']->showUsage(); break;
+
+                case 'load':
+                    if (empty($commands[1])) $this->core['main']->showUsage();
+                    else if($this->core['modules']->setModType($commands[1]))
+                    { 
+                        if(count($commands) > 2) $this->core['modules']->loadModule($commands[2]);
+                        else $this->core['main']->showUsage();
+                    } break;
+
+                case 'set':
+                    if (empty($commands[1]) || empty($commands[2])) $this->core['main']->showUsage();
+                    else $this->core['modules']->setValue($commands[1], $commands[2]); break;
+
+                case 'libs':
+                    $this->listLibraries(); break;
+
+                case 'options':
+                    $this->core['modules']->showVariables(); break;
+
+                case 'local':
+                    $this->core['modules']->localShell(); break;
+
+                case 'sqli':
+                    $this->sqli['sqli']->sqli(); break;
+
+                case 'core':
+                    $this->listCore(); break;
+                                       
+                case 'sql':
+                    $this->listSQL(); break;
+                    
+                case 'check':
+                    $this->checkExploit(); break;
+                    
+
+                case 'exploit':
+                    $this->runExploit(); break;
+
+                case 'clear':
+                case 'cls':
+                    $this->clearScreen(); break;
+
+                case 'banner':
+                    $this->core['main']->outputHeader(); break;
+
+                default:
+                    echo $this->libs['colours']->cstring("\tERROR: ", "red");
+                    echo "{$line} is not a valid command\n";
+            }    
+
+            readline_add_history($line);
+        } while (!in_array($line, $exitCommands));
+    }
+
+    private function preloadLibs()
+    {
+        $lib_files = array();
+        $libs = glob('libs/*.php');
+        for($i = 0; $i < count($libs); $i++)
+        {
+            $lib_files[$i] = $libs[$i];
+            require_once $libs[$i];
+        }
+        return $lib_files;
+    }
+
+    private function preloadCore()
+    {
+        $core_files = array();
+        $core = glob('core/*.php');
+        for($i = 0; $i < count($core); $i++)
+        {
+            $core_files[$i] = $core[$i];
+            require_once $core[$i];
+        }
+        return $core_files;
+    }
+    
+    private function preloadSQL()
+    {
+        $sqli_files = array();
+        $sqli = glob('sqli/*.php');
+        for($i = 0; $i < count($sqli); $i++)
+        {
+            $sqli_files[$i] = $sqli[$i];
+            require_once $sqli[$i];
+        }
+        return $sqli_files;
+    }
+
+    private function loadLibrary($lib)
+    {
+        if (!file_exists("libs/{$lib}.class.php")) 
+        {
+            echo "\t{$lib} is not a valid library\n";
+            return false;
+        }
+        require_once "libs/{$lib}.class.php";
+        $class = "\\Libraries\\{$lib}";
+        $this->libs[$lib] = new $class($this);
+        if (!is_object($this->libs[$lib])) 
+        {
+            echo "\tError loading library {$lib}\n";
+            return false;
+        }
+        return true;
+    }
+
+    private function loadCore($core)
+    {
+        if (!file_exists("core/{$core}.class.php")) 
+        {
+            echo "\t{$core} is not a valid core function\n";
+            return false;
+        }
+        require_once "core/{$core}.class.php";
+        $class = "\\Core\\{$core}";
+        $this->core[$core] = new $class($this);
+        if (!is_object($this->core[$core])) 
+        {
+            echo "\tError loading core function {$core}\n";
+            return false;
+        }
+        return true;
+    }
+    
+    private function loadSQL($sqli)
+    {
+        if (!file_exists("sqli/{$sqli}.class.php")) 
+        {
+            echo "\t{$sqli} is not a valid core function\n";
+            return false;
+        }
+        require_once "sqli/{$sqli}.class.php";
+        $class = "\\SQLi\\{$sqli}";
+        $this->sqli[$sqli] = new $class($this);
+        if (!is_object($this->sqli[$sqli])) 
+        {
+            echo "\tError loading core function {$sqli}\n";
+            return false;
+        }
+        return true;
+    }
+
+    private function listLibraries()
+    {
+        $this->preloadLibs();
+        $classes = get_declared_classes();
+        echo $this->framework->libs['colours']->cstring("\n\n\tOpenWire Framework\n", "blue");
+        echo $this->framework->libs['colours']->cstring("\tList of all Libraries\n", "purple");
+        echo $this->framework->libs['colours']->cstring("\t--------------------------------------------------------------------\n", "white");
+        foreach ($classes as $class) {
+            preg_match('#(Libraries\\\.*)#', $class, $matches);
+            if (empty($matches[1])) continue;
+            $lib = new $matches[1]($this);
+            echo $this->framework->libs['colours']->cstring("\t[*] Name: ", "blue");
+            echo $this->framework->libs['colours']->cstring("{$lib->name}\n", "white");
+            echo $this->framework->libs['colours']->cstring("\t[*] Description: ", "blue");
+            echo $this->framework->libs['colours']->cstring("{$lib->description}\n", "white");
+            echo $this->framework->libs['colours']->cstring("\t--------------------------------------------------------------------\n\n", "white");
+
+            unset($module);
+        }
+        return true;
+    }
+    private function listCore()
+    {
+        $this->preloadCore();
+        $classes = get_declared_classes();
+        echo $this->framework->libs['colours']->cstring("\n\n\tOpenWire Framework\n", "blue");
+        echo $this->framework->libs['colours']->cstring("\tList of all Core Functions\n", "purple");
+        echo $this->framework->libs['colours']->cstring("\t--------------------------------------------------------------------\n", "white");
+        foreach ($classes as $class) {
+            preg_match('#(Core\\\.*)#', $class, $matches);
+            if (empty($matches[1])) continue;
+            $core = new $matches[1]($this);
+            echo $this->framework->libs['colours']->cstring("\t[*] Name: ", "blue");
+            echo $this->framework->libs['colours']->cstring("{$core->name}\n", "white");
+            echo $this->framework->libs['colours']->cstring("\t[*] Description: ", "blue");
+            echo $this->framework->libs['colours']->cstring("{$core->description}\n", "white");
+            echo $this->framework->libs['colours']->cstring("\t--------------------------------------------------------------------\n\n", "white");
+
+            unset($module);
+        }
+        return true;
+    }
+    
+    /* Start Exploit Functions
+       TODO: Better post exploit handling
+             Allowing loading of post exploits. Possible meterpreter type shell.
+    */
+    private function checkExploit()
+    {
+        if (!$this->core['modules']->verifyModule()) return false;
+        if (!$this->core['modules']->verifyVariables()) return false;
+        $this->core['modules']->clearThreads();
+        $vulnerable = $this->core['modules']->module->check();
+        if ($vulnerable) echo " The target is vulnerable\n";
+        else echo " The target is not vulnerable\n";
+        return true;
+    }
+    private function runExploit()
+    {
+        if (!$this->core['modules']->verifyModule()) return false;
+        if (!$this->core['modules']->verifyVariables()) return false;
+        $this->core['modules']->clearThreads();
+        $mod = $this->core['modules']->getModule();
+        $vulnerable = $mod->check();
+        if (!$vulnerable) {
+            echo " The target is not vulnerable\n";
+            return false;
+        }
+        $status = $mod->exploit();
+        if (!$status) 
+        {
+            echo $this->libs['colours']->cstring("\n\n\tExploit Failed!\n", "green");
+            return false;
+        }
+        echo $this->libs['colours']->cstring("\n\n\tExploit successful!\n", "green");
+        return true;
+    }
+
+    protected function clearScreen()
+    {
+        $characters = array(27, 91, 72, 27, 91, 50, 74);
+        foreach ($characters as $character) echo chr($character);
+        return true;
+    }
+    protected function getURL()
+    {
+        if (!$this->core['modules']->verifyModule()) return false;
+        return $this->core['modules']->module->target . $this->core['modules']->module->path;
+    }
+}
+?>
+
