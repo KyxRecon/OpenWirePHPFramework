@@ -104,7 +104,11 @@ class sqli extends Framework {
                         
         $sqlclasslist = $this->preloadsqlClass();
         foreach($sqlclasslist as $sqlclass)
-            $this->loadsqlClass(substr($sqlclass, 10, -10));
+            $this->loadsqlClass(substr($sqlclass, 10, -9));
+            
+        $liblist = $this->preloadLibs();
+        foreach($liblist as $lib)
+            $this->loadLibrary(substr($lib, 5, -10));
         
         $line = '';
         $exitCommands = array('quit', 'exit');
@@ -158,7 +162,8 @@ class sqli extends Framework {
 					$this->showsqliUsage(); break;
 
                 case 'double':
-					$this->sqlcore['double_query']->ordoubleQuery(); break;
+					var_dump($this->delim);
+					$this->sqlcore['doubleQuery']->ordoubleQuery(); break;
 					
                 case 'blind':
 					$this->showsqliUsage(); break;
@@ -199,13 +204,24 @@ class sqli extends Framework {
     {
         $sqlcore_files = array();
         $sqlcore = glob('sqli/core/*.php');
-        var_dump($sqlcore);
         for($i = 0; $i < count($sqlcore); $i++)
         {
             $sqlcore_files[$i] = $sqlcore[$i];
             require_once $sqlcore[$i];
         }
         return $sqlcore_files;
+    }
+    
+    private function preloadLibs()
+    {
+        $lib_files = array();
+        $libs = glob('libs/*.php');
+        for($i = 0; $i < count($libs); $i++)
+        {
+            $lib_files[$i] = $libs[$i];
+            require_once $libs[$i];
+        }
+        return $lib_files;
     }
     
     public function preloadsqlClass()
@@ -233,6 +249,24 @@ class sqli extends Framework {
         if (!is_object($this->sqlcore[$sqlcore])) 
         {
             echo "\tError loading core function {$sqlcore}\n";
+            return false;
+        }
+        return true;
+    }
+    
+    private function loadLibrary($lib)
+    {
+        if (!file_exists("libs/{$lib}.class.php")) 
+        {
+            echo "\t{$lib} is not a valid library\n";
+            return false;
+        }
+        require_once "libs/{$lib}.class.php";
+        $class = "\\Libraries\\{$lib}";
+        $this->libs[$lib] = new $class($this);
+        if (!is_object($this->libs[$lib])) 
+        {
+            echo "\tError loading library {$lib}\n";
             return false;
         }
         return true;
