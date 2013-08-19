@@ -3,7 +3,6 @@
 namespace SQLi;
 use \Framework as Framework;
 
-global $delim;
 
 class sqli extends Framework {
 		 
