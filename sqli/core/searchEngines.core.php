@@ -40,10 +40,9 @@ class searchEngines extends Framework {
 		$bing = 'http://www.bing.com/search?q='.$squery.'&go=&qs=n&sk=&sc=8-13&first='.$count;		
 		
 		$page = $this->framework->libs['webot']->curl_get_contents($bing);
+				
 		$links = $this->framework->libs['webot']->parse_array($page, '<h3>', '</h3>');
-		
-
-		
+				
 		print $this->framework->libs['colours']->cstring(" \n\n\tBing! Search Complete\n", "blue");
         print $this->framework->libs['colours']->cstring("\t--------------------------\n", "white");
 		print("\tSearch Query: ");

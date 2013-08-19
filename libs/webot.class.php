@@ -55,7 +55,7 @@ class webot extends Framework
 		$hd = array("Connection: Keep-alive", "Keep-alive: 300", "Expect:", "Referer: $ref", "User-Agent: $agen");
 		$c  = curl_setopt($ch, CURLOPT_URL, $url);
 		$c  = curl_setopt($ch, CURLOPT_POST, 0);
-		$c  = curl_setopt($ch, CURLOPT_HTTPHEADER, $hd);
+		// $c  = curl_setopt($ch, CURLOPT_HTTPHEADER, $hd);
 		$x  = curl_exec($ch);
 		//$g['data'] = $x;
 		return $x;
