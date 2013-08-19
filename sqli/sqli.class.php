@@ -173,6 +173,9 @@ class sqli extends Framework {
                 case 'strass': 
 					$this->genFolders(); break;
 					
+                case 'search': 
+					$this->sqlcore['searchEngines']->bingSearch(); break;
+					
                 case 'display': 
 					echo $this->ua."\n";
 					echo $this->user_agent."\n";
