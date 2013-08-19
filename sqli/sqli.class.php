@@ -3,6 +3,7 @@
 namespace SQLi;
 use \Framework as Framework;
 
+global $delim;
 
 class sqli extends Framework {
 		 
@@ -162,7 +163,6 @@ class sqli extends Framework {
 					$this->showsqliUsage(); break;
 
                 case 'double':
-					var_dump($this->delim);
 					$this->sqlcore['doubleQuery']->ordoubleQuery(); break;
 					
                 case 'blind':

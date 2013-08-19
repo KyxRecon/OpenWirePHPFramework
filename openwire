@@ -45,6 +45,8 @@ class Framework {
         $this->sqli = array();
         $this->base = getcwd();
         $this->framework = $this;
+        
+       
     }
 
     public function run()
